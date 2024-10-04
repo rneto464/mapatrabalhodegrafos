@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script>
+        L_NO_TOUCH = false;
+        L_DISABLE_3D = false;
+    </script>
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; right: 0; left: 0; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        #map_e9ccf95f212dd3719e05fdca585d68e4 {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            left: 0;
+            top: 0;
+        }
+        .leaflet-container { font-size: 1rem; }
+    </style>
+</head>
+<body>
+    <div style="padding: 10px; position: absolute; top: 20px; left: 10px; background: rgb(59, 59, 59); z-index: 1000; border: 2px solid rgb(10, 10, 10); color: white;">
+        <h4>Buscar Cidades</h4>
+        <label for="city1">Cidade 1:</label>
+        <input type="text" id="city1" name="city1" placeholder="Ex: Brasília">
+        <br><br>
+        <label for="city2">Cidade 2:</label>
+        <input type="text" id="city2" name="city2" placeholder="Ex: São Paulo">
+        <br><br>
+        <button onclick="searchCities()">Buscar Cidades</button>
+        <br><br>
+
+        <h4>Traçar Rota</h4>
+        <button onclick="drawRoute()">Traçar Rota</button>
+        <br><br>
+
+        <h4>Remover Marcador</h4>
+        <button onclick="removeMarker()">Remover Último Marcador</button>
+        <br><br>
+
+        <h4>Navegar para Pontos Predefinidos</h4>
+        <button onclick="window.location.href='pontos_predefinidos.html'">Ir para Pontos Predefinidos</button>
+    </div>
+
+    <div class="folium-map" id="map_e9ccf95f212dd3719e05fdca585d68e4"></div>
+
+    <script>
+        var map = L.map("map_e9ccf95f212dd3719e05fdca585d68e4", {
+            center: [45.35, -121.6972],
+            zoom: 12,
+            zoomControl: true
+        });
+
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
+
+        var markers = [];
+        var polyline = null;
+
+        // Função para adicionar marcadores no clique do mapa
+        map.on('click', function(e) {
+            if (markers.length >= 2) {
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = [];
+            }
+
+            var marker = L.marker(e.latlng).addTo(map)
+                .bindPopup('Marcador: ' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5))
+                .openPopup();
+            markers.push(marker);
+        });
+
+        // Função para remover o último marcador adicionado
+        function removeMarker() {
+            if (markers.length > 0) {
+                var markerToRemove = markers.pop();
+                map.removeLayer(markerToRemove);
+            } else {
+                alert('Nenhum marcador para remover.');
+            }
+        }
+
+        // Função para desenhar a rota entre dois marcadores usando a API OSRM
+        function drawRoute() {
+            if (markers.length === 2) {
+                var latlngs = markers.map(marker => marker.getLatLng());
+                var start = latlngs[0];
+                var end = latlngs[1];
+
+                var osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+
+                fetch(osrmUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        var route = L.geoJSON(data.routes[0].geometry).addTo(map);
+
+                        if (polyline) {
+                            map.removeLayer(polyline);
+                        }
+                        polyline = route;
+                        map.fitBounds(route.getBounds());
+                    })
+                    .catch(error => {
+                        alert('Erro ao buscar a rota: ' + error);
+                    });
+            } else {
+                alert('Por favor, adicione dois marcadores antes de traçar a rota.');
+            }
+        }
+
+        // Função para buscar coordenadas de duas cidades
+        async function searchCities() {
+            var city1 = document.getElementById('city1').value;
+            var city2 = document.getElementById('city2').value;
+
+            if (city1 && city2) {
+                try {
+                    const response1 = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + city1);
+                    const data1 = await response1.json();
+                    const response2 = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + city2);
+                    const data2 = await response2.json();
+
+                    if (data1.length > 0 && data2.length > 0) {
+                        var latlng1 = L.latLng(parseFloat(data1[0].lat), parseFloat(data1[0].lon));
+                        var latlng2 = L.latLng(parseFloat(data2[0].lat), parseFloat(data2[0].lon));
+
+                        markers.forEach(marker => map.removeLayer(marker));
+                        markers = [];
+
+                        var marker1 = L.marker(latlng1).addTo(map)
+                            .bindPopup('Cidade 1: ' + city1 + '<br>Coordenadas: ' + latlng1.lat.toFixed(5) + ', ' + latlng1.lng.toFixed(5))
+                            .openPopup();
+                        var marker2 = L.marker(latlng2).addTo(map)
+                            .bindPopup('Cidade 2: ' + city2 + '<br>Coordenadas: ' + latlng2.lat.toFixed(5) + ', ' + latlng2.lng.toFixed(5))
+                            .openPopup();
+
+                        markers.push(marker1, marker2);
+
+                        map.setView(latlng1, 12);
+                    } else {
+                        alert('Uma das cidades não foi encontrada. Tente novamente.');
+                    }
+                } catch (error) {
+                    alert('Erro ao buscar as cidades: ' + error);
+                }
+            } else {
+                alert('Por favor, insira o nome de duas cidades.');
+            }
+        }
+    </script>
+</body>
+</html>

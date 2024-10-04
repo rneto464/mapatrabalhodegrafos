@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pontos Predefinidos e Inserção Manual</title>
+
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; right: 0; left: 0; }
+        .leaflet-container { font-size: 1rem; }
+        .container { position: absolute; top: 20px; left: 10px; z-index: 1000; background-color: #3b3b3b; padding: 10px; border: 2px solid black; color: white; }
+        button { background-color: #555; color: white; border: none; padding: 10px; cursor: pointer; }
+        button:hover { background-color: #777; }
+    </style>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h4>Pontos Predefinidos</h4>
+        <button onclick="addPredefinedPoints()">Adicionar Pontos Predefinidos</button>
+        <br><br>
+
+        <h4>Adicionar Ponto de Partida (Localização do Usuário)</h4>
+        <button onclick="setUserLocation()">Adicionar Ponto de Partida</button>
+        <br><br>
+
+        <h4>Inserir Latitude e Longitude</h4>
+        <input type="text" id="latitude" placeholder="Latitude">
+        <input type="text" id="longitude" placeholder="Longitude">
+        <button onclick="addMarkerByCoordinates()">Adicionar Marcador</button>
+        <br><br>
+
+        <button onclick="window.location.href='htmlmapa.html'">Voltar para Página Principal</button>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        var map = L.map('map').setView([45.35, -121.6972], 12);
+        var userMarker = null;
+        var predefinedMarkers = [];
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Função para adicionar pontos predefinidos
+        function addPredefinedPoints() {
+            var points = [
+                { lat: 40.7128, lng: -74.0060, name: "Nova York" },
+                { lat: 34.0522, lng: -118.2437, name: "Los Angeles" },
+                { lat: 51.5074, lng: -0.1278, name: "Londres" },
+                { lat: -23.5505, lng: -46.6333, name: "São Paulo" },
+                { lat: -15.8267, lng: -47.9218, name: "Brasília" }
+            ];
+
+            var bounds = L.latLngBounds(); // Para ajustar o zoom automaticamente
+
+            points.forEach(point => {
+                var marker = L.marker([point.lat, point.lng]).addTo(map)
+                    .bindPopup('Ponto: ' + point.name + '<br>Coordenadas: ' + point.lat.toFixed(5) + ', ' + point.lng.toFixed(5));
+                predefinedMarkers.push(marker);
+                bounds.extend([point.lat, point.lng]); // Adiciona as coordenadas à área visível
+            });
+
+            map.fitBounds(bounds); // Ajusta o mapa para mostrar todos os pontos
+        }
+
+        // Função para adicionar o ponto de partida com base na localização do usuário
+        function setUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
+                    var latlng = L.latLng(lat, lng);
+
+                    if (userMarker) {
+                        map.removeLayer(userMarker); // Remove o marcador anterior
+                    }
+
+                    userMarker = L.marker(latlng).addTo(map)
+                        .bindPopup('Você está aqui: ' + lat.toFixed(5) + ', ' + lng.toFixed(5))
+                        .openPopup();
+
+                    map.setView(latlng, 12); // Centraliza no local do usuário
+                }, function () {
+                    alert('Não foi possível obter a localização.');
+                });
+            } else {
+                alert('Geolocalização não é suportada pelo seu navegador.');
+            }
+        }
+
+        // Função para adicionar um marcador com base em coordenadas fornecidas
+        function addMarkerByCoordinates() {
+            var lat = document.getElementById('latitude').value;
+            var lng = document.getElementById('longitude').value;
+
+            if (lat && lng) {
+                var latlng = L.latLng(parseFloat(lat), parseFloat(lng));
+                var marker = L.marker(latlng).addTo(map)
+                    .bindPopup('Marcador: ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5))
+                    .openPopup();
+            } else {
+                alert('Por favor, insira valores válidos para latitude e longitude.');
+            }
+        }
+    </script>
+</body>
+</html>
